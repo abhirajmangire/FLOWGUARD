@@ -332,12 +332,6 @@ async def audit_stats():
     except Exception as e:
         return {"error": f"Audit service unavailable: {e}"}
 
-# v1/models stub for LLM client compatibility
-@public_router.get("/v1/models")
-def list_models():
-    """Stub for OpenAI-compatible model listing (returns empty - FLOWGUARD uses external LLMs)"""
-    return {"object": "list", "data": []}
-
 @router.get('/history')
 def history(kind: str = 'pr_checks', limit: int = 10, tenant_id: str = Depends(current_tenant)):
     """Most recent stored results for the demo tenant. Empty list when no database is configured."""
