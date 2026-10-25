@@ -291,6 +291,53 @@ def tenants(): return db.list_tenants()
 @public_router.get('/db/status')
 def db_status(): return db.status()
 
+# Audit log proxy endpoints (forward to audit-log service on port 8080)
+AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8080")
+
+@public_router.get("/audit/verify")
+async def audit_verify():
+    """Proxy to audit-log service: verify chain integrity"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{AUDIT_SERVICE_URL}/audit/verify")
+            return resp.json()
+    except Exception as e:
+        return {"valid": False, "error": f"Audit service unavailable: {e}"}
+
+@public_router.get("/audit/entries")
+async def audit_entries(limit: int = 20, offset: int = 0, tenant_id: str | None = None, action: str | None = None):
+    """Proxy to audit-log service: query audit entries"""
+    import httpx
+    try:
+        params = {"limit": limit, "offset": offset}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        if action:
+            params["action"] = action
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{AUDIT_SERVICE_URL}/audit/entries", params=params)
+            return resp.json()
+    except Exception as e:
+        return {"entries": [], "error": f"Audit service unavailable: {e}"}
+
+@public_router.get("/audit/stats")
+async def audit_stats():
+    """Proxy to audit-log service: get audit statistics"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{AUDIT_SERVICE_URL}/audit/stats")
+            return resp.json()
+    except Exception as e:
+        return {"error": f"Audit service unavailable: {e}"}
+
+# v1/models stub for LLM client compatibility
+@public_router.get("/v1/models")
+def list_models():
+    """Stub for OpenAI-compatible model listing (returns empty - FLOWGUARD uses external LLMs)"""
+    return {"object": "list", "data": []}
+
 @router.get('/history')
 def history(kind: str = 'pr_checks', limit: int = 10, tenant_id: str = Depends(current_tenant)):
     """Most recent stored results for the demo tenant. Empty list when no database is configured."""
